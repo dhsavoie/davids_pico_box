@@ -25,7 +25,7 @@ document.getElementById("messageForm").addEventListener("submit", function(event
         // Push message to Firebase Realtime Database
         const messagesRef = database.ref("messages");
         messagesRef.push({
-            text: message,
+            message: message,
             timestamp: Date.now(),
             read: false
         }).then(() => {
