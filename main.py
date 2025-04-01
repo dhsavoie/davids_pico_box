@@ -1,100 +1,34 @@
-import network
-import socket
 import time
-import machine
-from lcd import LCD
+import socket
+import network
+import framebuf
+from oled import *
+from sh1106 import *
+from firebase import *
+from machine import Pin, I2C
+from captive_portal import *
+from connect_to_wifi import *
 from my_secrets import pico_AP, pico_AP_pw
 
-lcd = LCD(rs=13, e=12, d4=11, d5=10, d6=9, d7=8)
+i2c = I2C(1, sda=Pin(18), scl=Pin(19), freq=400000)
+display = SH1106_I2C(128, 64, i2c, rotate=180)
+display.fill(0)  # Clear the display
 
-# Create an Access Point
-lcd.write("Starting AP...")
-ap = network.WLAN(network.AP_IF)
-ap.config(essid=pico_AP, password=pico_AP_pw)  # Change if needed
-ap.active(True)
+# first check if wifi credentials are saved
+if not connect_to_wifi():
+    display_wrapped_text(display, "Starting AP. Connect to PicoSetup, password 12345678")
+    captive_portal()
+else:
+    display_wrapped_text(display, "Connected to WiFi!")
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
 
-while not ap.active():
-    pass
 
-print("Access Point Active:", ap.ifconfig())
-
-# HTML Page for Captive Portal
-html = """<!DOCTYPE html>
-<html>
-<head><title>Pico W Setup</title></title></head>
-<body>
-    <h2>Enter WiFi Credentials</h2>
-    <form action="/" method="POST" enctype="application/x-www-form-urlencoded">
-    SSID: <input type="text" name="ssid"><br>
-    Password: <input type="text" name="password"><br>
-    <input type="submit" value="Connect">
-</form>
-</body>
-</html>
-"""
-
-# Start Web Server
-lcd.clear()
-lcd.write("192.168.4.1")
-addr = ("0.0.0.0", 80)
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind(addr)
-s.listen(5)
-
-print("Web server running...")
-
-while True:
-    conn, addr = s.accept()
-    print("Client connected from:", addr)
-    
-    request = conn.recv(1024).decode()
-    print("Request Headers:")
-    print(request)
-
-    # Capture the content length header and check the body
-    content_length = 0
-    for line in request.split("\r\n"):
-        if "Content-Length" in line:
-            content_length = int(line.split(":")[1].strip())
-
-    print(f"Content-Length: {content_length}")
-
-    if content_length > 0:
-        # Read the exact number of bytes for the body
-        body = conn.recv(content_length).decode()
-        print("Request Body:")
-        print(body)
-    else:
-        body = ""
-
-    if "POST" in request:
-        print("POST request received...")
-        if body:
-            # Process the body data
-            params = body.split("&")
-            ssid, password = params
-            ssid = ssid.split("=")[1]
-            password = password.split("=")[1]
-
-            print(f"Received SSID: {ssid}, Password: {password}")
-
-            # Save credentials
-            with open("wifi.txt", "w") as f:
-                f.write(f"{ssid}\n{password}")
-
-            response = "HTTP/1.1 200 OK\n\n<p>Saved! Restarting...</p>"
-            conn.sendall(response.encode())
-            conn.close()
-            lcd.clear()
-            lcd.write("Restarting...")
-            time.sleep(5)
-            machine.reset()  # Restart to connect
-        else:
-            print("Error: No body data received")
-            response = "HTTP/1.1 200 OK\n\n<p>Error: No data received. Please try again.</p>"
-            conn.sendall(response.encode())
-            conn.close()
-    else:
-        response = "HTTP/1.1 200 OK\nContent-Type: text/html\n\n" + html
-        conn.sendall(response.encode())
-        conn.close()
+    while True:
+        if not wlan.isconnected():
+            machine.reset()
+        
+        message = check_messages()
+        if message:
+            display_wrapped_text(display, message)
+        time.sleep(5)
