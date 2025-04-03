@@ -7,11 +7,14 @@ const firebaseConfig = {
     storageBucket: "david-s-pico-box.firebasestorage.app",
     messagingSenderId: "961511409168",
     appId: "1:961511409168:web:72244a0d428384a1d5ac95"
-  };
+};
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+
+// Ensure 'sender' is defined (fallback to 'unknown' if not set)
+const senderName = typeof sender !== "undefined" ? sender : "unknown";
 
 // Handle form submission
 document.getElementById("messageForm").addEventListener("submit", function(event) {
@@ -26,6 +29,7 @@ document.getElementById("messageForm").addEventListener("submit", function(event
         const messagesRef = database.ref("messages");
         messagesRef.push({
             text: message,
+            sender: senderName, // Include sender info
             timestamp: Date.now(),
             read: false
         }).then(() => {
