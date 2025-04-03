@@ -75,6 +75,7 @@
 from micropython import const
 import utime as time
 import framebuf
+from oled_graphics import *
 
 
 # a few register definitions
@@ -231,6 +232,42 @@ class SH1106(framebuf.FrameBuffer):
     def ellipse(self, x, y, xr, yr, color):
         super().ellipse(x, y, xr, yr, color)
         self.register_updates(y-yr, y+yr-1)
+
+    def new_message_envelope(self, invert=False):
+        # invert each byte in full_heart byte array
+        if invert:
+            self.rect(16, 0, 128-16-16, 64-16, 1)
+        else:
+            self.fill_rect(16, 0, 128-16-16, 64-16, 1)  # Draw a rectangle
+        self.line(16, 0, int(128/2), 24, invert)
+        self.line(int(128/2), 24, 128-16, 0, invert)  # Draw a line
+        self.text("New Message!", 24, 7*8, 1)
+        heart = full_heart if invert else inverted_full_heart
+        fb = framebuf.FrameBuffer(heart, 16, 12, framebuf.MONO_HLSB)
+        self.blit(fb, 56, 24-6, framebuf.MONO_HLSB)
+        self.show()
+
+    def display_wrapped_text(self, message):
+        self.fill(0)  # Clear screen
+        max_chars_per_line = 16  # Each line fits 16 characters
+        max_lines = 8  # The screen has 8 lines total
+
+        message_split = message.split()
+        lines = [""]
+        current_line = 0
+        for word in message_split:
+            if (len(word) + len(lines[current_line])) <= max_chars_per_line:
+                lines[current_line] += word + " "
+            else:
+                current_line += 1
+                if current_line < max_lines:
+                    lines.append(word + " ")
+                else:
+                    break
+        for line in range(len(lines)):
+            self.text(lines[line], 0, line * 8, 1)
+
+        self.show()
 
     def register_updates(self, y0, y1=None):
         # this function takes the top and optional bottom address of the changes made
