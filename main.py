@@ -17,15 +17,17 @@ debounce_delay = 500
 last_press_time = 0
 
 unopened_messages = []
+opened_messages = []
 new_message_waiting = False
 envelope_open = False
 current_message_index = 0
+opened_message_index = 0
 
 button = Pin(0, Pin.IN, Pin.PULL_UP)
 
 def check_messages():
     # unopened_messages = []
-    global unopened_messages, new_message_waiting
+    global unopened_messages, new_message_waiting, opened_messages, opened_message_index
     try:
         response = urequests.get(FIREBASE_URL)
         messages = response.json()
@@ -42,6 +44,8 @@ def check_messages():
 
         if unopened_messages:
             new_message_waiting = True
+            opened_messages = []
+            opened_message_index = 0
     except Exception as e:
         print("Error fetching messages:", e)
 
@@ -55,7 +59,7 @@ def mark_message_as_read(msg_id):
         print("Error updating message:", e)
 
 def handle_button_press(pin):
-    global current_message_index, new_message_waiting, unopened_messages, last_press_time, envelope_open
+    global current_message_index, new_message_waiting, unopened_messages, last_press_time, envelope_open, opened_messages, opened_message_index
 
     current_time = time.ticks_ms()
     if time.ticks_diff(current_time, last_press_time) > debounce_delay:
@@ -68,6 +72,7 @@ def handle_button_press(pin):
             display.fill_rect(0, 64-8, 8, 8, 0)
             display.text(f"{current_message_index+1}/{len(unopened_messages)}", 0, 64-8, 1)
             display.show()
+            opened_messages.append(unopened_messages[current_message_index])
 
             # Move to next message
             current_message_index += 1
@@ -75,8 +80,18 @@ def handle_button_press(pin):
             # If we reached the end of the queue, reset
             if current_message_index >= len(unopened_messages):
                 unopened_messages = []  # Clear queue
+                opened_message_index = current_message_index
                 current_message_index = 0
                 new_message_waiting = False  # No more messages waiting
+        else:
+            opened_message_index += 1
+            if opened_message_index >= len(opened_messages):
+                opened_message_index = 0
+            display.display_wrapped_text(opened_messages[opened_message_index])
+            display.fill_rect(0, 64-8, 8, 8, 0)
+            display.text(f"{opened_message_index+1}/{len(opened_messages)}", 0, 64-8, 1)
+            display.show()
+            
 
 
 
