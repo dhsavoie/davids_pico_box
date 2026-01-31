@@ -3,12 +3,12 @@ import time
 import ujson
 import framebuf
 import urequests
+from wifi import *
 from sh1106 import *
 from logging import *
 from oled_graphics import *
 from machine import Pin, I2C
 from captive_portal import *
-from connect_to_wifi import *
 from my_secrets import pico_AP, pico_AP_pw, FIREBASE_MESSAGES_URL, FIREBASE_HEART_URL, owner, receiver
 
 ##### CONSTANTS #####

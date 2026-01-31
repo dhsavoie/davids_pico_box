@@ -1,5 +1,4 @@
 import time
-import machine
 import network
 from logging import *
 
