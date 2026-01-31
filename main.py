@@ -25,6 +25,7 @@ display         = SH1106_I2C(128,64,i2c,rotate=180)
 ##### MAIN CODE #####
 print("running new main")
 
+# instantiate box object
 box = Box(display)
 
 # assign interrupts
@@ -36,6 +37,7 @@ display.fill(0)
 
 # Wifi Connection
 wlan = connect_to_wifi()
+# if connection not successful, prompt for captive portal
 if not wlan:
     display.display_wrapped_text(f"Connect to wifi {pico_AP}, password {pico_AP_pw}, then enter wifi info at http:// 192.168.4.1")
     log("Opening captive portal")
@@ -44,11 +46,15 @@ else:
     display.display_wrapped_text("Connected to WiFi!")
     log("Connected to WiFi!")
 
+    # track reconnect attempts
     reconnect_attempts = 0
+
+    # track last viewed message
     prev_length = 0
 
     # Loop
     while True:
+        # check connection and attempt to reconnect if connection lost
         if not wlan.isconnected():
             reconnect = reconnect_wifi(wlan)
             if reconnect:
@@ -56,7 +62,7 @@ else:
             else:
                 reconnect_attempts += 1
         else:
-            
+            # check messages, display envelope 
             box.check_messages()
             if box.new_message_waiting:
                 if len(box.unopened_messages) > 0:
@@ -75,8 +81,10 @@ else:
                             gc.collect()
             prev_length = len(box.unopened_messages)
 
+            # check heart ownership
             box.check_heart()
 
+        # timeout after some amount of reconnect attempts
         if reconnect_attempts == MAX_RECONNECT_ATTEMPTS:
             display.display_wrapped_text("Could not reconnect to wifi. Please restart!")
             log(f"Failed to reconnect to wifi after {MAX_RECONNECT_ATTEMPTS}")
