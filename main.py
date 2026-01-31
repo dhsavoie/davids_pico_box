@@ -1,3 +1,4 @@
+import gc
 import time
 import ujson
 import socket
@@ -13,7 +14,7 @@ from captive_portal import *
 from connect_to_wifi import *
 from my_secrets import pico_AP, pico_AP_pw, FIREBASE_MESSAGES_URL, FIREBASE_HEART_URL, owner, receiver
 
-debounce_delay = 500
+DEBOUNCE_DELAY = 500
 last_press_time = 0
 
 POLLING_DELAY = 3  # seconds
@@ -58,6 +59,7 @@ def check_messages():
 
 def check_heart():
     global envelope_open, heart_state
+    # gc.collect()
     try:
         response = urequests.get(FIREBASE_HEART_URL)
         heart = response.json()
@@ -66,13 +68,13 @@ def check_heart():
         if heart:
             for heart_id, heart_data in heart.items():
                 if heart_data.get("owner") == owner and not envelope_open:
-                    fb = framebuf.FrameBuffer(small_full_heart, 16, 8, framebuf.MONO_HLSB)
-                    display.blit(fb, 128-16, 64-8, framebuf.MONO_HLSB)
+                    # fb = framebuf.FrameBuffer(small_full_heart, 16, 8, framebuf.MONO_HLSB)
+                    display.blit(display.fb_small_full_heart, 128-16, 64-8, framebuf.MONO_HLSB)
                     display.show()
                     heart_state = "full"
                 elif heart_data.get("owner") == receiver and not envelope_open:
-                    fb = framebuf.FrameBuffer(small_empty_heart, 16, 8, framebuf.MONO_HLSB)
-                    display.blit(fb, 128-16, 64-8, framebuf.MONO_HLSB)
+                    # fb = framebuf.FrameBuffer(small_empty_heart, 16, 8, framebuf.MONO_HLSB)
+                    display.blit(display.fb_small_empty_heart, 128-16, 64-8, framebuf.MONO_HLSB)
                     display.show()
                     heart_state = "empty"
     except Exception as e:
@@ -91,7 +93,7 @@ def handle_button_press(pin):
     global current_message_index, new_message_waiting, unopened_messages, last_press_time, envelope_open, opened_messages, opened_message_index
 
     current_time = time.ticks_ms()
-    if time.ticks_diff(current_time, last_press_time) > debounce_delay:
+    if time.ticks_diff(current_time, last_press_time) > DEBOUNCE_DELAY:
         last_press_time = current_time  # Update last press time
         
         if new_message_waiting and unopened_messages:
@@ -125,14 +127,14 @@ def handle_pass_heart(pin):
     global heart_state, last_press_time, envelope_open
 
     current_time = time.ticks_ms()
-    if time.ticks_diff(current_time, last_press_time) > debounce_delay:
+    if time.ticks_diff(current_time, last_press_time) > DEBOUNCE_DELAY:
         last_press_time = current_time  # Update last press time
 
         if heart_state == "full":
             heart_state = "empty"
             if not envelope_open:
-                fb = framebuf.FrameBuffer(small_empty_heart, 16, 8, framebuf.MONO_HLSB)
-                display.blit(fb, 128-16, 64-8, framebuf.MONO_HLSB)
+                # fb = framebuf.FrameBuffer(small_empty_heart, 16, 8, framebuf.MONO_HLSB)
+                display.blit(display.fb_small_empty_heart, 128-16, 64-8, framebuf.MONO_HLSB)
                 display.show()
 
             update_url = f"{FIREBASE_HEART_URL[:-5]}/heart.json"
@@ -153,6 +155,7 @@ display.fill(0)  # Clear the display
 scroll_button.irq(trigger=Pin.IRQ_FALLING, handler=handle_button_press)
 heart_button.irq(trigger=Pin.IRQ_FALLING, handler=handle_pass_heart)
 
+print("old main")
 # first check if wifi credentials are saved
 wlan = connect_to_wifi()
 if not wlan:

@@ -102,6 +102,8 @@ class SH1106(framebuf.FrameBuffer):
         self.renderbuf = bytearray(self.bufsize)
         self.pages_to_update = 0
         self.delay = 0
+        self.fb_small_full_heart = framebuf.FrameBuffer(small_full_heart, 16, 8, framebuf.MONO_HLSB)
+        self.fb_small_empty_heart = framebuf.FrameBuffer(small_empty_heart, 16, 8, framebuf.MONO_HLSB)
 
         if self.rotate90:
             self.displaybuf = bytearray(self.bufsize)
