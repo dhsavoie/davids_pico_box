@@ -6,7 +6,7 @@ import framebuf
 import urequests
 import micropython
 from sh1106 import *
-# from firebase import *
+from logging import *
 from oled_graphics import *
 from machine import Pin, I2C
 from captive_portal import *
@@ -16,7 +16,9 @@ from my_secrets import pico_AP, pico_AP_pw, FIREBASE_MESSAGES_URL, FIREBASE_HEAR
 debounce_delay = 500
 last_press_time = 0
 
-polling_delay = 3  # seconds
+POLLING_DELAY = 3  # seconds
+MAX_RECONNECT_ATTEMPTS = 5
+MESSAGE_QUERY_LIMIT = 10 # limit query so we only pull last 10 entries
 
 unopened_messages = []
 opened_messages = []
@@ -34,7 +36,7 @@ def check_messages():
     # unopened_messages = []
     global unopened_messages, new_message_waiting, opened_messages, opened_message_index
     try:
-        response = urequests.get(FIREBASE_MESSAGES_URL)
+        response = urequests.get(FIREBASE_MESSAGES_URL + f'?orderBy="$key"&limitToLast={MESSAGE_QUERY_LIMIT}')
         messages = response.json()
         response.close()
 
@@ -152,35 +154,45 @@ scroll_button.irq(trigger=Pin.IRQ_FALLING, handler=handle_button_press)
 heart_button.irq(trigger=Pin.IRQ_FALLING, handler=handle_pass_heart)
 
 # first check if wifi credentials are saved
-if not connect_to_wifi():
+wlan = connect_to_wifi()
+if not wlan:
     display.display_wrapped_text(f"Connect to wifi {pico_AP}, password {pico_AP_pw}, then enter wifi info at http:// 192.168.4.1")
+    log("Opening captive portal")
     captive_portal()
 else:
     display.display_wrapped_text("Connected to WiFi!")
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
+    log("Connected to wifi!")
 
     previous_length = 0
+    reconnect_attempts = 0
     while True:
         if not wlan.isconnected():
-            machine.reset()
+            reconnect = reconnect_wifi(wlan)
+            if reconnect:
+                reconnect_attempts = 0
+            else:
+                reconnect_attempts += 1
+        else:
         
-        check_messages()
-        if new_message_waiting:
-            if len(unopened_messages) > 0:
-                if previous_length == 0:
-                    display.fill(0)
-                    display.new_message_envelope()
-                    envelope_open = True
-                    display.text(f"{len(unopened_messages)}", 8, 64-8, 1)
-                    display.show()
-                elif envelope_open:
-                    if previous_length != len(unopened_messages):
-                        display.fill_rect(8, 64-8, 8, 8, 0)
+            check_messages()
+            if new_message_waiting:
+                if len(unopened_messages) > 0:
+                    if previous_length == 0:
+                        display.fill(0)
+                        display.new_message_envelope()
+                        envelope_open = True
                         display.text(f"{len(unopened_messages)}", 8, 64-8, 1)
                         display.show()
-        previous_length = len(unopened_messages)
+                    elif envelope_open:
+                        if previous_length != len(unopened_messages):
+                            display.fill_rect(8, 64-8, 8, 8, 0)
+                            display.text(f"{len(unopened_messages)}", 8, 64-8, 1)
+                            display.show()
+            previous_length = len(unopened_messages)
 
-        check_heart()
+            check_heart()
 
-        time.sleep(polling_delay)
+        if reconnect_attempts == MAX_RECONNECT_ATTEMPTS:
+            display.display_wrapped_text("Could not reconnect to wifi. Please restart!")
+            log(f"Failed to reconnect to wifi after {MAX_RECONNECT_ATTEMPTS}")
+        time.sleep(POLLING_DELAY)
