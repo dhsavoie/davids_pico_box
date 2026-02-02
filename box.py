@@ -16,6 +16,7 @@ class State:
     NEW_MESSAGE_WAITING     = 1
     ENVELOPE_OPEN           = 2
     DISPLAYING_MESSAGE      = 3
+    PARSING_MESSAGES        = 4
 
 class HeartState:
     EMPTY   = 0
@@ -65,6 +66,7 @@ class Box:
 
                     # if there is an unread message...
                     if (sender != owner) and (not read_status):
+                        print(f"NEW MESSAGE! Current state: {self.state}")
 
                         # if we are currently displaying messages...
                         if self.state == State.DISPLAYING_MESSAGE:
@@ -72,6 +74,7 @@ class Box:
                             self.message_queue = []
                             self.prev_queue_length = len(self.message_queue)
                             self.current_message_index = 0
+                            self.set_state(State.PARSING_MESSAGES)
 
                         # add new message to the queue and mark it as read in firebase
                         message = msg_data['text']
