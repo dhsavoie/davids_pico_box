@@ -79,12 +79,12 @@ class Box:
                         # add new message to the queue and mark it as read in firebase
                         message = msg_data['text']
                         print(f"New message from {sender}: {message}")
-                        self.message_queue.append(message)
+                        self.message_queue.append((msg_id, msg_data))
                         self._mark_message_as_read(msg_id)
             
             # if there was a new message, change state to indicate new message is waiting
             if len(self.message_queue) > self.prev_queue_length:
-                print(self.message_queue)
+                self.message_queue.sort(key=lambda m:m[1].get("timestamp", 0))
                 self.prev_queue_length = len(self.message_queue)
                 self.set_state(State.NEW_MESSAGE_WAITING) # update state
 
@@ -139,7 +139,7 @@ class Box:
             # if the envelope is currently being displayed, clear it and display first message in the message queue
             if self.state == State.ENVELOPE_OPEN:
                 self.set_state(State.DISPLAYING_MESSAGE)
-                self.display.display_wrapped_text(self.message_queue[self.current_message_index])
+                self.display.display_wrapped_text(self.message_queue[self.current_message_index][1]['text'])
                 self.display.fill_rect(0, 64-8, 8, 8, 0)
                 self.display.text(f"{self.current_message_index+1}/{len(self.message_queue)}", 0, 64-8, 1)
                 self.display.show()
@@ -153,7 +153,7 @@ class Box:
                     self.current_message_index = 0
 
                 # display message of current index
-                self.display.display_wrapped_text(self.message_queue[self.current_message_index])
+                self.display.display_wrapped_text(self.message_queue[self.current_message_index][1]['text'])
                 self.display.fill_rect(0, 64-8, 8, 8, 0)
                 self.display.text(f"{self.current_message_index+1}/{len(self.message_queue)}", 0, 64-8, 1)
                 self.display.show()
