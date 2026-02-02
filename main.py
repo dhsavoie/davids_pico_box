@@ -1,7 +1,7 @@
 import gc
 import time
 
-from box            import Box
+from box            import Box, State
 from wifi           import *
 from sh1106         import *
 from machine        import Pin, I2C
@@ -23,7 +23,7 @@ display         = SH1106_I2C(128,64,i2c,rotate=180)
                
 
 ##### MAIN CODE #####
-print("running new main")
+print("running scroll fix")
 
 # instantiate box object
 box = Box(display)
@@ -49,10 +49,7 @@ else:
     # track reconnect attempts
     reconnect_attempts = 0
 
-    # track last viewed message
-    prev_length = 0
-
-    # Loop
+    # main loop
     while True:
         # check connection and attempt to reconnect if connection lost
         if not wlan.isconnected():
@@ -62,26 +59,19 @@ else:
             else:
                 reconnect_attempts += 1
         else:
-            # check messages, display envelope 
+            # check messages for new messages
             box.check_messages()
-            if box.new_message_waiting:
-                if len(box.unopened_messages) > 0:
-                    if prev_length == 0:
-                        display.fill(0)
-                        display.new_message_envelope()
-                        box.envelope_open = True
-                        display.text(f"{len(box.unopened_messages)}", 8, 64-8, 1)
-                        display.show()
-                        gc.collect()
-                    elif box.envelope_open:
-                        if prev_length != len(box.unopened_messages):
-                            display.fill_rect(8, 64-8, 8, 8, 0)
-                            display.text(f"{len(box.unopened_messages)}", 8, 64-8, 1)
-                            display.show()
-                            gc.collect()
-            prev_length = len(box.unopened_messages)
 
-            # check heart ownership
+            # if state indicates a new message has arrived, display envelope and show num of messages
+            if box.state == State.NEW_MESSAGE_WAITING:
+                display.fill(0)
+                display.new_message_envelope()
+                box.set_state(State.ENVELOPE_OPEN) # update state
+                display.text(f"{len(box.message_queue)}", 8, 64-8, 1)
+                display.show()
+                gc.collect()
+
+            # check heart ownership and update heart graphic
             box.check_heart()
 
         # timeout after some amount of reconnect attempts
