@@ -36,6 +36,8 @@ heart_button.   irq(trigger=Pin.IRQ_FALLING,handler=box.handle_pass_heart)
 display.fill(0)
 
 # Wifi Connection
+wlan = None
+gc.collect()
 wlan = connect_to_wifi()
 # if connection not successful, prompt for captive portal
 if not wlan:
@@ -45,6 +47,7 @@ if not wlan:
 else:
     display.display_wrapped_text("Connected to WiFi!")
     log("Connected to WiFi!")
+    time.sleep(2)
 
     # track reconnect attempts
     reconnect_attempts = 0
@@ -78,5 +81,6 @@ else:
         if reconnect_attempts == MAX_RECONNECT_ATTEMPTS:
             display.display_wrapped_text("Could not reconnect to wifi. Please restart!")
             log(f"Failed to reconnect to wifi after {MAX_RECONNECT_ATTEMPTS}")
+            break
 
         time.sleep(POLLING_DELAY_S)
